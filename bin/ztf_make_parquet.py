@@ -38,8 +38,6 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
 #    else:
 #        column_list = None
 
-    recast_uint(df)
-
     columns_to_rename = ["hmjd", "mag", "magerr", "clrcoeff", "catflags"] # vector columns
     filter_map = {1: "g", 2: "r", 3: "i"}
     filters_in_datafile = list(set(df['filterid']))
@@ -47,10 +45,21 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
     filter_number = filters_in_datafile[0]
     filter_string = filter_map[filter_number]
 
+    rcids = list(set(df['rcid']))
+    assert(len(rcids) == 1)
+    rcid = np.int16(rcids[0])
+    fieldids = list(set(df['fieldid']))
+    assert(len(fieldids) == 1)
+    fieldid = np.int16(fieldids[0])
+
 
     # blow up scalar columns to vector columns
-    df[f'rcid_{filter_string}'] = df.apply(lambda x: [x['rcid'] for i in range(len(x['mag']))], axis=1)
-    df[f'fieldid_{filter_string}'] = df.apply(lambda x: [x['fieldid'] for i in range(len(x['mag']))], axis=1)
+    df[f'rcid_{filter_string}'] = df.apply(lambda x: [rcid for i in range(len(x['mag']))], axis=1)
+    df[f'fieldid_{filter_string}'] = df.apply(lambda x: [fieldid for i in range(len(x['mag']))], axis=1)
+
+    # catflags are a list of uints--change to ints
+    df[f'catflags'] = df[f'catflags'].apply(lambda x: list(map(np.int16, x)))
+
 
     df.rename(columns={column: f"{column}_{filter_string}" for column 
         in columns_to_rename }, inplace=True)
@@ -64,16 +73,19 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
         df[f"rcid_{set_filter_string}"] = df['objra'].apply(lambda x: [])
         df[f"fieldid_{set_filter_string}"] = df['objra'].apply(lambda x: [])
 
+    df.drop(columns=['filterid','fieldid','rcid','nepochs'],inplace=True)
 
-    schema = pyarrow.Schema.from_pandas(df)
+    # no longer needed, I think, since all the arrays are object...
+    recast_uint(df)
 
-    #table = pyarrow.Table.from_pandas(df, schema)
-    #pyarrow.parquet.write_table(table, data_parquet_filename)
+
 
     if not os.path.exists(os.path.dirname(data_parquet_filename)):
         os.makedirs(os.path.dirname(data_parquet_filename))
 
-    df.to_parquet(data_parquet_filename, engine='pyarrow')
+    schema = pyarrow.Schema.from_pandas(df)
+    table = pyarrow.Table.from_pandas(df, schema)
+    pyarrow.parquet.write_table(table, data_parquet_filename, flavor='spark')
 
 if __name__ == '__main__':
 
