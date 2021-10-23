@@ -83,9 +83,35 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
 
 
     if not os.path.exists(os.path.dirname(data_parquet_filename)):
-        os.makedirs(os.path.dirname(data_parquet_filename))
+        try:
+            os.makedirs(os.path.dirname(data_parquet_filename))
+        except FileExistsError:
+            pass
 
     schema = pyarrow.Schema.from_pandas(df)
+
+    # unfortunately the empty filter columns above come through to pyarrow as 
+    # type list<item: null>, which fails when joining against parquet files
+    # from other filters downstream.  So coerce the schemas to be correct
+
+    for n in set((1,2,3)) - set((filter_number,)):
+        set_filter_string = filter_map[n]
+        for column in columns_to_rename:
+            if column == 'catflags':
+                dtype = pyarrow.int16()
+            else:
+                dtype = pyarrow.float32()
+            field_name = f"{column}_{set_filter_string}"
+            field_index = schema.get_field_index(field_name)
+            schema = schema.set(field_index, pyarrow.field(field_name,
+                pyarrow.list_(dtype)))
+
+        for column in ['rcid', 'fieldid']:
+                field_name = f"{column}_{set_filter_string}"
+                field_index = schema.get_field_index(field_name)
+                schema = schema.set(field_index, pyarrow.field(field_name,
+                        pyarrow.list_(pyarrow.int16())))
+
     table = pyarrow.Table.from_pandas(df, schema)
     pyarrow.parquet.write_table(table, data_parquet_filename, flavor='spark')
 
