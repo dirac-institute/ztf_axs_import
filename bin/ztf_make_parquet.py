@@ -38,7 +38,7 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
 #    else:
 #        column_list = None
 
-    columns_to_rename = ["hmjd", "mag", "magerr", "clrcoeff", "catflags"] # vector columns
+    columns_to_rename = ["mjd", "mag", "magerr", "clrcoeff", "catflags"] # vector columns
     filter_map = {1: "g", 2: "r", 3: "i"}
     filters_in_datafile = list(set(df['filterid']))
     assert(len(filters_in_datafile) == 1)
@@ -60,6 +60,8 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
     # catflags are a list of uints--change to ints
     df[f'catflags'] = df[f'catflags'].apply(lambda x: list(map(np.int16, x)))
 
+    df.rename(columns={'hmjd': 'mjd', 'objra': 'ra', 'objdec': 'dec'},
+        inplace=True)
 
     df.rename(columns={column: f"{column}_{filter_string}" for column 
         in columns_to_rename }, inplace=True)
@@ -68,10 +70,10 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
         set_filter_string = filter_map[n]
         for column in columns_to_rename:
             datatype = df[f"{column}_{filter_string}"].dtype
-            df[f"{column}_{set_filter_string}"] = df['objra'].apply(lambda x: [])
+            df[f"{column}_{set_filter_string}"] = df['ra'].apply(lambda x: [])
 
-        df[f"rcid_{set_filter_string}"] = df['objra'].apply(lambda x: [])
-        df[f"fieldid_{set_filter_string}"] = df['objra'].apply(lambda x: [])
+        df[f"rcid_{set_filter_string}"] = df['ra'].apply(lambda x: [])
+        df[f"fieldid_{set_filter_string}"] = df['ra'].apply(lambda x: [])
 
     df.drop(columns=['filterid','fieldid','rcid','nepochs'],inplace=True)
 
