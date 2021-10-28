@@ -126,6 +126,8 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--no-data", dest="no_data", action="store_true",
                         help="Suppress saving the output photometry files, only store positions")
+    parser.add_argument("--check-output", dest="check_output", action="store_true",
+                        help="Check saved parquet files for errors")
     parser.add_argument("--glob", dest="glob_pattern", action="store",
                         help="Glob pattern for searching the input directory",
                         type=str, default=default_glob_pattern)
@@ -146,17 +148,33 @@ if __name__ == '__main__':
         output_file_pytable = bulk_parquet_path.replace(os.path.normpath(args.input_basepath),
                                                      os.path.normpath(args.output_basepath))
         output_pos_filename = output_file_pytable.replace(".parquet", "_pos.parquet")
+        output_data_filename = output_file_pytable.replace(".parquet", "_data.parquet")
+
+        if args.check_output:
+            if(os.path.exists(output_data_filename)):
+                try: 
+                    df = pyarrow.parquet.read_table(output_data_filename)
+                    del df
+                except:
+                    print('Failed to read file: ',output_data_filename)
+                    os.remove(output_data_filename)
+                    convert_bulk_parquet(bulk_parquet_path, output_pos_filename,
+                          output_data_filename)
+
+            else:
+                print('Missing output file: ',output_data_filename)
+                #convert_bulk_parquet(bulk_parquet_path, output_pos_filename,
+                #          output_data_filename)
+            return
 
         if args.no_data:
             output_data_filename = None
             if(os.path.exists(output_pos_filename)):
                 return
         else:
-            output_data_filename = output_file_pytable.replace(".parquet", "_data.parquet")
             if(os.path.exists(output_data_filename)):
                 return
 
-#        print(bulk_parquet_path, output_data_filename)
         convert_bulk_parquet(bulk_parquet_path, output_pos_filename,
                           output_data_filename)
 
