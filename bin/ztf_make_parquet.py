@@ -99,6 +99,8 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
         for column in columns_to_rename:
             if column == 'catflags':
                 dtype = pyarrow.int16()
+            elif column == 'mjd':
+                dtype = pyarrow.float64()
             else:
                 dtype = pyarrow.float32()
             field_name = f"{column}_{set_filter_string}"
@@ -117,9 +119,11 @@ def convert_bulk_parquet(bulk_parquet_filename, pos_parquet_filename,
 
 if __name__ == '__main__':
 
+    dr = 'dr14'
+
     default_input_basepath = ("/data/epyc/data/ztf_matchfiles/"
-                          "msip_dr7/irsa.ipac.caltech.edu")
-    default_output_basepath = "/data/epyc/data/ztf_matchfiles/scratch_dr7_bulk_ztf_parquet_for_axs"
+                          f"msip_{dr}/irsa.ipac.caltech.edu")
+    default_output_basepath = f"/data/epyc/data/ztf_matchfiles/scratch_{dr}_bulk_ztf_parquet_for_axs"
     default_glob_pattern = "[01]/field*/*.parquet"
 
     parser = argparse.ArgumentParser(description="Convert bulk ZTF public data release parquet into parquet needed for AXS",
